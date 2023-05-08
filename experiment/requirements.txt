@@ -1,0 +1,11 @@
+ansible
+urllib3
+cryptography
+requests
+Flask
+tbselenium
+pyvirtualdisplay
+stem
+pytest
+pytest-cov
+psutil

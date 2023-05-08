@@ -1,0 +1,1347 @@
+###############################################################
+#  Ansible Playbook for setting up and running Torpedo
+# dataset experiments. 
+#
+# The playbook is designed to be run with a choice of tags,
+# in order:
+#
+# ansible-playbook run_collection.yml  --tags "setup_coordinator" -i inventory_model.cfg
+# ansible-playbook run_collection.yml  --tags "setup_packages" * 2
+# ansible-playbook run_collection.yml  --tags "config_exp"
+# or
+# ansible-playbook run_collection.yml  --tags "update_exp_coord" on own machine
+# followed by
+# ansible-playbook run_collection.yml  --tags "update_exp"
+# ansible-playbook run_collection.yml  --tags "build_docker"
+# ansible-playbook run_collection.yml  --tags "setup_onion"
+# ansible-playbook run_collection.yml  --tags "upload_real_onion_pages"
+# ansible-playbook run_collection.yml  --tags "start_capture"
+# or
+# ansible-playbook run_collection.yml  --tags "start_capture_screen"
+# ansible-playbook run_collection.yml  --tags "run_exp"
+# or
+# ansible-playbook run_collection.yml  --tags "run_exp_screen"
+# ansible-playbook run_collection.yml  --tags "kill_exp"
+# or
+# ansible-playbook run_collection.yml  --tags "kill_exp_screen"
+# 
+# rm -rf experiment_results
+#
+# ansible-playbook run_collection.yml  --tags "fetch_pcaps_onion"
+# ansible-playbook run_collection.yml  --tags "fetch_pcaps_onion_full"
+# ansible-playbook run_collection.yml  --tags "fetch_pcaps_client"
+# ansible-playbook run_collection.yml  --tags "post_exp"
+# or
+# ansible-playbook run_collection.yml  --tags "fetch_all_pcaps" <--------------------
+# ansible-playbook run_collection.yml  --tags "rm_pcaps" <-----------------------
+# or
+# ansible-playbook run_collection.yml  --tags "rm_onion_pcaps"
+# ansible-playbook run_collection.yml  --tags "rm_client_pcaps"
+#
+# ansible-playbook run_collection.yml  --tags "fetch_dataset" -i inventory_model.cfg
+#
+#  Naturally, post_exp should only be run when experiments are 
+# over. Experiment completion can be checked by looking at the
+# screen sessions spawned during the experiment on nodes.
+#
+# At the end of this file, you may also find a number of
+# auxiliary tasks to configure additional server data.
+##############################################################
+
+# ansible all -m ping
+---
+  ######################################################
+  # SETUP_COORDINATOR
+  ######################################################
+- hosts: coordinator
+  gather_facts: no
+  remote_user: afonso_carvalho
+  become: yes
+  become_method: sudo
+
+  tasks:
+    - name: Update apt-get repo and cache
+      apt: update_cache=yes force_apt_get=yes cache_valid_time=3600
+      tags: 
+        - setup_coordinator
+
+    - name: Install python3-pip
+      apt:
+        pkg: python3-pip
+        state: present
+      tags: 
+        - setup_coordinator
+
+    - name: Update pip
+      pip:
+        name: pip
+        executable: pip3
+        state: latest
+      tags:
+        - setup_coordinator
+
+    - name: Install software-properties-common
+      apt:
+        pkg: software-properties-common
+        state: present
+      tags:
+        - setup_coordinator
+
+    - name: Install dpkt
+      pip:
+        name: dpkt
+        state: present
+      tags:
+        - setup_coordinator
+
+    - name: Add ansible repository
+      ansible.builtin.apt_repository:
+        repo: ppa:ansible/ansible
+      tags:
+        - setup_coordinator
+
+    - name: Install ansible
+      apt:
+        pkg: ansible
+        state: latest
+      tags:
+        - setup_coordinator
+
+    - name: Install flask python module
+      pip:
+        name: flask
+      tags:
+        - setup_coordinator
+
+- hosts: coordinator
+  gather_facts: no
+  any_errors_fatal: true
+
+  tasks:
+    - name: Copy hidden-service-docker-image directory to the machines
+      synchronize:
+        src: /PATH/hidden-service-docker-image/
+        dest: /home/afonso_carvalho/hidden-service-docker-image/
+      tags: 
+       - setup_coordinator
+
+    - name: Copy client-docker-image directory to the machines
+      synchronize:
+        src: /PATH/client-docker-image/
+        dest: /home/afonso_carvalho/client-docker-image/
+      tags: 
+       - setup_coordinator
+       - update_exp_coord
+    
+    - name: Copy probe-docker-image directory to the machines
+      synchronize:
+        src: /PATH/probe-docker-image/
+        dest: /home/afonso_carvalho/probe-docker-image/
+      tags: 
+       - setup_coordinator
+       - update_exp_coord
+
+    - name: Copy requirements.txt to the machines
+      copy:
+        src: requirements.txt
+        dest: /home/afonso_carvalho/requirements.txt
+      tags: 
+        - setup_coordinator
+        - update_exp_coord
+
+    - name: Copy kill_exp to the machines
+      copy:
+        src: kill_exp.py
+        dest: /home/afonso_carvalho/kill_exp.py
+      tags: 
+        - setup_coordinator
+        - update_exp_coord
+
+    - name: Copy capture_traffic_OS.py to the machines
+      copy:
+        src: capture_traffic_OS.py
+        dest: /home/afonso_carvalho/capture_traffic_OS.py
+      tags: 
+        - setup_coordinator
+        - update_exp_coord
+
+    - name: Copy capture_traffic_Client.py to the machines
+      copy:
+        src: capture_traffic_Client.py
+        dest: /home/afonso_carvalho/capture_traffic_Client.py
+      tags: 
+        - setup_coordinator
+        - update_exp_coord
+
+    - name: Copy capture_traffic_Probe.py to the machines
+      copy:
+        src: capture_traffic_Probe.py
+        dest: /home/afonso_carvalho/capture_traffic_Probe.py
+      tags: 
+        - setup_coordinator
+        - update_exp_coord
+    
+    - name: Copy capture_OS.sh to the machines
+      copy:
+        src: capture_OS.sh
+        dest: /home/afonso_carvalho/capture_OS.sh
+      tags: 
+        - setup_coordinator
+
+    - name: Copy capture_Client.sh to the machines
+      copy:
+        src: capture_Client.sh
+        dest: /home/afonso_carvalho/capture_Client.sh
+      tags: 
+        - setup_coordinator
+        - update_exp_coord
+
+    - name: Copy capture_Probe.sh to the machines
+      copy:
+        src: capture_Probe.sh
+        dest: /home/afonso_carvalho/capture_Probe.sh
+      tags: 
+        - setup_coordinator
+        - update_exp_coord
+
+    - name: Copy experiment_Client.sh to the machines
+      copy:
+        src: experiment_Client.sh
+        dest: /home/afonso_carvalho/experiment_Client.sh
+      tags: 
+        - setup_coordinator
+        - update_exp_coord
+
+    - name: Copy experiment_Probe.sh to the machines
+      copy:
+        src: experiment_Probe.sh
+        dest: /home/afonso_carvalho/experiment_Probe.sh
+      tags: 
+        - setup_coordinator
+        - update_exp_coord
+    
+    - name: Copy ansible.cfg in the testbed folder to the machine
+      copy:
+        src: ./ansible.cfg
+        dest: /home/afonso_carvalho/ansible.cfg
+      tags: 
+        - setup_coordinator
+
+    - name: Copy inventory_model.cfg in the testbed folder to the machine
+      copy:
+        src: ./inventory_model.cfg
+        dest: /home/afonso_carvalho/inventory_model.cfg
+      tags: 
+        - setup_coordinator
+        - update_exp_coord
+
+    - name: Copy inventory_model.cfg to inventory.cfg
+      command: cp inventory_model.cfg inventory.cfg
+      tags: 
+        - setup_coordinator
+        - update_exp_coord
+
+    - name: Copy job_coordinator_scale_tor.py in the testbed folder to the machine
+      copy:
+        src: ./job_coordinator_scale_tor.py
+        dest: /home/afonso_carvalho/job_coordinator_scale_tor.py
+      tags: 
+        - setup_coordinator
+    
+    - name: Copy job_coordinator_server_scale_tor.py in the testbed folder to the machine
+      copy:
+        src: ./job_coordinator_server_scale_tor.py
+        dest: /home/afonso_carvalho/job_coordinator_server_scale_tor.py
+      tags: 
+        - setup_coordinator
+        - update_exp_coord
+
+    - name: Copy run_collection.yml in the testbed folder to the machine
+      copy:
+        src: ./run_collection.yml
+        dest: /home/afonso_carvalho/run_collection.yml
+      tags: 
+        - setup_coordinator
+        - update_exp_coord
+
+    - name: Copy onion_pages/onionRealPages in the testbed folder to the machine
+      synchronize:
+        src: ./onion_pages/onionRealPages
+        dest: /home/afonso_carvalho/onion_pages/
+      tags: 
+        - setup_coordinator
+
+    - name: Copy ssh key to the machine
+      copy:
+        src: /home/afonso/.ssh/ansible
+        dest: /home/afonso_carvalho/.ssh/ansible
+        mode: 0400
+      tags: 
+        - setup_coordinator
+
+    - name: Install numpy python module
+      pip:
+        name: numpy
+      tags:
+        - setup_coordinator
+
+    - name: Fetch dataset
+      synchronize:  src=/home/afonso_carvalho/experiment_results dest=/home/afonso/Experiments/dataset mode=pull
+      tags: 
+        - fetch_dataset
+
+  ######################################################
+  # SETUP_PACKAGES
+  ######################################################
+
+# This Second Play installs the required software in web servers
+# with sudo
+- hosts: client_nodes:os_nodes:probe_nodes
+  remote_user: afonso_carvalho
+  gather_facts: no
+  become: yes
+  become_method: sudo
+
+  tasks:
+    - name: Update apt-get repo and cache
+      apt: update_cache=yes force_apt_get=yes cache_valid_time=3600
+      tags: 
+        - setup_packages
+
+    - name: Install python3-pip
+      apt:
+        pkg: python3-pip
+        state: present
+      tags: 
+        - setup_packages
+
+    # sudo apt install xvfb
+    - name: Install xvfb
+      apt:
+        pkg: xvfb
+        state: present
+      tags: 
+        - setup_packages
+
+    # sudo apt install tor
+    - name: Install tor
+      apt:
+        pkg: tor
+        state: present
+      tags: 
+        - setup_packages
+
+    # sudo apt install screen
+    - name: Install screen
+      apt:
+        pkg: screen
+        state: present
+      tags:
+        - setup_packages
+
+    # sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 7EA0A9C3F273FCD8
+    - name: Add an apt key by id from a keyserver
+      apt_key:
+        keyserver: keyserver.ubuntu.com
+        id: 7EA0A9C3F273FCD8
+      tags:
+        - setup_packages
+
+    # sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu (lsb_release -cs) stable"
+    - name: Add Docker repository
+      apt_repository:
+        repo: deb https://download.docker.com/linux/ubuntu bionic stable
+        state: present
+      tags:
+        - setup_packages
+
+    # sudo apt-get update
+    # sudo apt-get install docker-ce docker-ce-cli containerd.io
+    - name: Update apt and install docker-ce
+      apt: update_cache=yes name=docker-ce state=latest
+      tags:
+        - setup_packages
+
+    - name: Update apt and install docker-ce-cli
+      apt: name=docker-ce-cli state=latest
+      tags:
+        - setup_packages
+
+    - name: Update apt and install containerd.io
+      apt: name=containerd.io state=latest
+      tags:
+        - setup_packages
+    
+    # pip3 install docker
+    - name: Install Docker Module for Python
+      pip:
+        name: docker
+      tags:
+        - setup_packages
+
+    # TODO: NOT WORKING!!
+    # TODO: needs to be done for all_nodes
+    # Fix /var/run/docker.sock: connect: permission denied
+    # sudo groupadd docker
+    # sudo usermod -aG docker ${USER}
+    # newgrp docker
+    # docker run hello-world
+
+    # sudo groupadd docker
+    - name: Create group docker
+      group:
+        name: docker
+        state: present
+      tags:
+        - setup_packages
+
+    # sudo usermod -aG docker ${USER}
+    - name: Adding user to group docker 
+      user: name=afonso_carvalho
+        groups=docker
+        shell=/bin/bash
+        append=yes
+      tags:
+        - setup_packages
+
+    # newgrp docker
+    # reset_connection doesn't support conditionals.
+    - name: Reset connection so docker group is picked up.
+      meta: reset_connection
+      tags:
+        - setup_packages
+
+- hosts: client_nodes:os_nodes:probe_nodes
+  gather_facts: no
+  remote_user: afonso_carvalho
+
+  tasks:
+    # wget https://github.com/mozilla/geckodriver/releases/download/v0.31.0/geckodriver-v0.31.0-linux64.tar.gz
+    - name: Download geckodriver
+      get_url:
+        url: https://github.com/mozilla/geckodriver/releases/download/v0.31.0/geckodriver-v0.31.0-linux64.tar.gz
+        dest: /home/afonso_carvalho
+        mode: 0755
+        owner: afonso_carvalho
+      tags:
+        - setup_packages
+    
+    # tar -xvzf geckodriver-v0.31.0-linux64.tar.gz
+    - name: Untar geckodriver
+      unarchive:
+        src: /home/afonso_carvalho/geckodriver-v0.31.0-linux64.tar.gz
+        dest: /home/afonso_carvalho
+        remote_src: yes
+      tags:
+        - setup_packages
+
+
+- hosts: client_nodes:os_nodes:probe_nodes
+  gather_facts: no
+  remote_user: afonso_carvalho
+  become: yes
+  become_method: sudo
+
+  tasks:
+    - name: Copy geckodriver
+      copy:
+        src: /home/afonso_carvalho/geckodriver
+        dest: /usr/local/bin/
+        mode: 0755True
+
+
+# This Second Play installs the required software in web servers
+# without sudo, because of file ownership
+- hosts: client_nodes:os_nodes:probe_nodes
+  gather_facts: no
+  remote_user: afonso_carvalho
+
+  tasks:
+    - name: Delete geckodriver archive
+      file: 
+        state: absent
+        path: /home/afonso_carvalho/geckodriver-v0.31.0-linux64.tar.gz
+      tags:
+        - setup_packages
+
+    #- name: Delete geckodriver
+     # file: 
+      #  state: absent
+       # path: /home/afonso_carvalho/geckodriver
+      #tags:
+       # - setup_packages
+
+    - name: Download tor browser bundle
+      get_url:
+        url: https://dist.torproject.org/torbrowser/11.5.1/tor-browser-linux64-11.5.1_en-US.tar.xz 
+        dest: /home/afonso_carvalho
+        mode: 0755
+        owner: afonso_carvalho
+      tags:
+        - setup_packages
+
+    # tar -xf tor-browser-linux64-11.5.1_en-US.tar.xz
+    - name: Untar tor browser bundle
+      unarchive:
+        src: /home/afonso_carvalho/tor-browser-linux64-11.5.1_en-US.tar.xz
+        dest: /home/afonso_carvalho
+        remote_src: yes
+      tags:
+        - setup_packages
+
+    - name: Delete tor-browser archive
+      file: 
+        state: absent
+        path: tor-browser-linux64-11.5.1_en-US.tar.xz
+      tags:
+        - setup_packages
+
+    - name: Copy requirements.txt to the machines
+      copy:
+        src: requirements.txt
+        dest: /home/afonso_carvalho/requirements.txt
+      tags: 
+        - setup_packages
+
+- hosts: client_nodes:os_nodes:probe_nodes
+  gather_facts: no
+  remote_user: afonso_carvalho
+  become: yes
+  become_method: sudo
+  
+  tasks:
+    - name: Update pip
+      pip:
+        name: pip
+        extra_args: --upgrade
+        executable: pip3
+      #  name: pip
+      #  executable: pip3
+      #  state: latest
+      tags:
+        - setup_packages
+
+    - name: Install specified python requirements
+      pip:
+        requirements: /home/afonso_carvalho/requirements.txt
+      tags: 
+        - setup_packages
+
+    - name: Install flask python module
+      pip:
+        name: flask
+      tags:
+        - setup_packages
+
+- hosts: client_nodes:probe_nodes
+  gather_facts: no
+  remote_user: afonso_carvalho
+  become: yes
+  become_method: sudo
+
+  tasks:
+
+    - name: Install tbselenium python module
+      pip:
+        name: tbselenium
+      tags:
+        - setup_packages
+    
+    - name: Install ansible python module
+      pip:
+        name: ansible
+      tags:
+        - setup_packages
+
+    # Fixes for TorBrowserDriver not working
+    - name: Install libdbus-glib-1-2
+      apt:
+        pkg: libdbus-glib-1-2
+        state: present
+      tags:
+        - setup_packages
+      
+    - name: Install packagekit-gtk3-module
+      apt:
+        pkg: packagekit-gtk3-module
+        state: present
+      tags:
+        - setup_packages
+
+  #####################################################
+  # CONFIG(UPDATE)_EXP
+  #####################################################
+- hosts: client_nodes
+  gather_facts: no
+  remote_user: afonso_carvalho
+  any_errors_fatal: true
+
+  tasks:
+
+    - name: Copy capture_Client.sh script to the machines
+      copy:
+        src: capture_Client.sh
+        dest: /home/afonso_carvalho/capture_Client.sh
+      tags: 
+        - config_exp
+
+    - name: Allow the bash script to be executed
+      become: yes
+      shell: chmod +x /home/afonso_carvalho/capture_Client.sh
+      tags: 
+        - config_exp
+
+    - name: Copy capture_traffic_Client.py script to the machines
+      copy:
+        src: capture_traffic_Client.py
+        dest: /home/afonso_carvalho/capture_traffic_Client.py
+      tags: 
+        - config_exp
+        - update_exp
+
+    - name: Copy experiment_Client.sh script to the machines
+      copy:
+        src: experiment_Client.sh
+        dest: /home/afonso_carvalho/experiment_Client.sh
+      tags: 
+        - config_exp
+        - update_exp
+
+    - name: Allow the bash script to be executed
+      become: yes
+      shell: chmod +x /home/afonso_carvalho/experiment_Client.sh
+      tags: 
+        - config_exp
+        - update_exp
+
+    - name: Copy inventory.cfg to the machines
+      copy:
+        src: inventory.cfg
+        dest: /home/afonso_carvalho/inventory.cfg
+      tags: 
+        - config_exp
+        - update_exp
+
+    - name: Copy client-docker-image directory to the machines
+      synchronize:
+        src: client-docker-image
+        dest: /home/afonso_carvalho/
+      tags: 
+        - config_exp
+        - update_exp
+
+- hosts: probe_nodes
+  gather_facts: no
+  remote_user: afonso_carvalho
+  any_errors_fatal: true
+
+  tasks:
+
+    - name: Copy capture_Probe.sh script to the machines
+      copy:
+        src: capture_Probe.sh
+        dest: /home/afonso_carvalho/capture_Probe.sh
+      tags: 
+        - config_exp
+
+    - name: Allow the bash script to be executed
+      become: yes
+      shell: chmod +x /home/afonso_carvalho/capture_Probe.sh
+      tags: 
+        - config_exp
+
+    - name: Copy capture_traffic_Probe.py script to the machines
+      copy:
+        src: capture_traffic_Probe.py
+        dest: /home/afonso_carvalho/capture_traffic_Probe.py
+      tags: 
+        - config_exp
+        - update_exp
+
+    - name: Copy experiment_Probe.sh script to the machines
+      copy:
+        src: experiment_Probe.sh
+        dest: /home/afonso_carvalho/experiment_Probe.sh
+      tags: 
+        - config_exp
+        - update_exp
+
+    - name: Allow the bash script to be executed
+      become: yes
+      shell: chmod +x /home/afonso_carvalho/experiment_Probe.sh
+      tags: 
+        - config_exp
+        - update_exp
+
+    - name: Copy inventory.cfg to the machines
+      copy:
+        src: inventory.cfg
+        dest: /home/afonso_carvalho/inventory.cfg
+      tags: 
+        - config_exp
+        - update_exp
+
+    - name: Copy probe-docker-image directory to the machines
+      synchronize:
+        src: probe-docker-image
+        dest: /home/afonso_carvalho/
+      tags: 
+        - config_exp
+        - update_exp
+
+- hosts: os_nodes
+  gather_facts: no
+  remote_user: afonso_carvalho
+  any_errors_fatal: true
+
+  tasks:
+
+    - name: Copy capture_traffic_OS.py script to the machines
+      copy:
+        src: capture_traffic_OS.py
+        dest: /home/afonso_carvalho/capture_traffic_OS.py
+      tags: 
+        - config_exp
+        - update_exp
+
+    - name: Copy capture_OS.sh script to the machines
+      copy:
+        src: capture_OS.sh
+        dest: /home/afonso_carvalho/capture_OS.sh
+      tags: 
+        - config_exp
+
+    - name: Copy inventory.cfg to the machines
+      copy:
+        src: inventory.cfg
+        dest: /home/afonso_carvalho/inventory.cfg
+      tags: 
+        - config_exp
+        - update_exp
+
+    - name: Allow the bash script to be executed
+      become: yes
+      shell: chmod +x /home/afonso_carvalho/capture_OS.sh
+      tags: 
+        - config_exp
+
+  #####################################################
+  # SETUP_ONION
+  #####################################################
+- hosts: os_nodes
+  gather_facts: no
+  remote_user: afonso_carvalho
+  become: yes
+  become_method: sudo
+
+  tasks:
+    - name: Install build-essential
+      apt:
+        pkg: build-essential
+        state: present
+      tags: 
+        - setup_onion
+
+    - name: Install libssl-dev
+      apt:
+        pkg: libssl-dev
+        state: present
+      tags: 
+        - setup_onion
+
+    - name: Install autoconf
+      apt:
+        pkg: autoconf
+        state: present
+      tags: 
+        - setup_onion
+
+    - name: Install make
+      apt:
+        pkg: make
+        state: present
+      tags: 
+        - setup_onion
+
+    - name: Install libsodium-dev
+      apt:
+        pkg: libsodium-dev
+        state: present
+      tags: 
+        - setup_onion
+
+    - name: Install gcc
+      apt:
+        pkg: gcc
+        state: present
+      tags: 
+        - setup_onion
+
+    - name: Install docker-compose
+      apt:
+        pkg: docker-compose
+        state: present
+      tags: 
+        - setup_onion
+
+- hosts: os_nodes
+  gather_facts: no
+  any_errors_fatal: true
+  become_method: sudo
+
+  tasks:   
+
+    - name: Copy hidden-service-docker-image directory to the machines
+      synchronize:
+        src: hidden-service-docker-image
+        dest: /home/afonso_carvalho/
+      tags: 
+       - setup_onion
+
+    - name: Copy hostname to the machines
+      copy:
+        src: hostname
+        dest: /home/afonso_carvalho/hidden-service-docker-image/web/
+        remote_src: yes
+      tags: 
+        - setup_onion
+
+    - name: Copy hs_ed25519_public_key to the machines
+      copy:
+        src: hs_ed25519_public_key
+        dest: /home/afonso_carvalho/hidden-service-docker-image/web/
+        remote_src: yes
+      tags: 
+        - setup_onion
+
+    - name: Copy hs_ed25519_secret_key to the machines
+      copy:
+        src: hs_ed25519_secret_key
+        dest: /home/afonso_carvalho/hidden-service-docker-image/web/
+        remote_src: yes
+      tags: 
+        - setup_onion
+
+  #####################################################
+  # UPLOAD_REAL_ONION_PAGES
+  #####################################################
+- hosts: os_nodes
+  gather_facts: no
+  any_errors_fatal: true
+  become: yes
+  become_user: root
+
+  tasks:
+
+    - name: Build docker image
+      become: no
+      shell: | 
+        docker build -t torp-onion-service /home/afonso_carvalho/hidden-service-docker-image/
+      tags: 
+        - upload_real_onion_pages
+
+    - name: Creates directory onion_pages/
+      file:
+        path: /home/afonso_carvalho/hidden-service-docker-image/web/www/onion_pages/
+        state: directory
+      tags: 
+        - upload_real_onion_pages
+
+    - name: Copy onion pages to the machines
+      synchronize:
+        src: onion_pages/onionRealPages/{{ onion_page }}
+        dest: /home/afonso_carvalho/hidden-service-docker-image/web/www/onion_pages/
+      tags: 
+        - upload_real_onion_pages
+
+  #####################################################
+  # BUILD_DOCKER
+  #####################################################
+- hosts: client_nodes
+  gather_facts: no
+  any_errors_fatal: true
+  become: yes
+  become_user: root
+
+  tasks:
+
+    - name: Build docker image
+      become: no
+      shell: | 
+        docker build -t client-image -f client-docker-image/Dockerfile .
+      tags: 
+        - build_docker
+
+- hosts: probe_nodes
+  gather_facts: no
+  any_errors_fatal: true
+  become: yes
+  become_user: root
+
+  tasks:
+
+    - name: Build docker image
+      become: no
+      shell: | 
+        docker build -t probe-image -f probe-docker-image/Dockerfile .
+      tags: 
+        - build_docker
+
+  #####################################################
+  # START_CAPTURE(_SCREEN)
+  #####################################################
+- hosts: os_nodes
+  gather_facts: no
+  any_errors_fatal: true
+  become: yes
+  become_user: root
+
+  tasks:
+
+    - name: Run capture script
+      shell: | 
+        nohup bash /home/afonso_carvalho/capture_OS.sh {{ onion_page }} > capture_log.txt 2>&1 &
+      tags: 
+        - start_capture
+
+    - name: Run capture script w/ screen
+      shell: | 
+        screen -S os_capture -L -d -m bash -c "/home/afonso_carvalho/capture_OS.sh {{ onion_page }}"
+        screen -S os_capture -X colon "logfile flush 0^M"
+      tags: 
+        - start_capture_screen
+
+- hosts: probe_nodes
+  gather_facts: no
+  any_errors_fatal: true
+  become: yes
+  become_user: root
+
+  tasks:
+
+    - name: Run capture script
+      shell:
+        nohup bash /home/afonso_carvalho/capture_Probe.sh > capture_log.txt 2>&1 &
+      tags: 
+        - start_capture
+
+    - name: Run capture script w/ screen
+      shell: | 
+        screen -S probe_capture -L -d -m bash -c "/home/afonso_carvalho/capture_Probe.sh"
+        screen -S probe_capture -X colon "logfile flush 0^M"
+      tags: 
+        - start_capture_screen
+
+- hosts: client_nodes
+  gather_facts: no
+  any_errors_fatal: true
+  become: yes
+  become_user: root
+
+  tasks:
+
+    - name: Run capture script
+      shell: | 
+        nohup bash /home/afonso_carvalho/capture_Client.sh > capture_log.txt 2>&1 &
+      tags: 
+        - start_capture
+
+    - name: Run capture script w/ screen
+      shell: | 
+        screen -S client_capture -L -d -m bash -c "/home/afonso_carvalho/capture_Client.sh"
+        screen -S client_capture -X colon "logfile flush 0^M"
+      tags: 
+        - start_capture_screen
+
+  #####################################################
+  # RUN_EXP
+  #####################################################
+- hosts: client_nodes
+  gather_facts: no
+  any_errors_fatal: true
+  become: yes
+  become_user: root
+
+  tasks:
+
+    - name: Run experiment script
+      shell: | 
+        nohup bash /home/afonso_carvalho/experiment_Client.sh {{ request_iterations }} {{ session_iterations }} {{ ansible_host }} > experiment_log.txt 2>&1 &
+      tags: 
+       - run_exp
+
+    - name: Run experiment script w/ screen
+      shell: | 
+        screen -S client_exp -L -d -m bash -c "/home/afonso_carvalho/experiment_Client.sh {{ request_iterations }} {{ session_iterations }} {{ ansible_host }}"
+        screen -S client_exp -X colon "logfile flush 0^M"
+      tags: 
+       - run_exp_screen
+
+- hosts: probe_nodes
+  gather_facts: no
+  any_errors_fatal: true
+  become: yes
+  become_user: root
+
+  tasks:
+
+    - name: Run experiment script
+      shell: | 
+        nohup bash /home/afonso_carvalho/experiment_Probe.sh {{ request_iterations }} {{ session_iterations }} {{ ansible_host }} > experiment_log.txt 2>&1 &
+      tags: 
+       - run_exp
+
+    - name: Run experiment script w/ screen
+      shell: | 
+        screen -S probe_exp -L -d -m bash -c "/home/afonso_carvalho/experiment_Probe.sh {{ request_iterations }} {{ session_iterations }} {{ ansible_host }}"
+        screen -S probe_exp -X colon "logfile flush 0^M"
+      tags: 
+       - run_exp_screen
+
+  #####################################################
+  # KILL_EXP(_SCREEN)
+  #####################################################
+
+- hosts: coordinator
+  gather_facts: no
+  any_errors_fatal: false
+  become: yes
+  become_user: root
+
+  tasks:
+  
+    - name: Stop backgroud processes
+      ignore_errors: yes
+      shell: | 
+        lsof -t -i:5005 | xargs -r kill -9
+      tags: 
+        - kill_exp
+
+- hosts: client_nodes
+  gather_facts: no
+  any_errors_fatal: false
+  become: yes
+  become_user: root
+
+  tasks:
+  
+    - name: Stop backgroud processes - capture_Client.sh
+      ignore_errors: yes
+      shell: | 
+        pkill -9 -f capture_Client.sh
+      tags: 
+        - kill_exp
+
+    - name: Stop backgroud processes - experiment_Client.sh
+      ignore_errors: yes
+      shell: | 
+        pkill -9 -f experiment_Client.sh
+      tags: 
+        - kill_exp
+
+    - name: Stop backgroud processe - cature_traffic_Client.py
+      ignore_errors: yes
+      shell: | 
+        pkill -9 -f cature_traffic_Client.py
+      tags: 
+        - kill_exp
+
+- hosts: probe_nodes
+  gather_facts: no
+  any_errors_fatal: false
+  become: yes
+  become_user: root
+
+  tasks:
+  
+    - name: Stop backgroud process - capture_Probe.sh
+      ignore_errors: yes
+      shell: | 
+        pkill -9 -f capture_Probe.sh
+      tags: 
+        - kill_exp
+
+    - name: Stop backgroud processe - experiment_Probe.sh
+      ignore_errors: yes
+      shell: | 
+        pkill -9 -f experiment_Probe.sh
+      tags: 
+        - kill_exp
+
+    - name: Stop backgroud processe - cature_traffic_Probe.py
+      ignore_errors: yes
+      shell: | 
+        pkill -9 -f cature_traffic_Probe.py
+      tags: 
+        - kill_exp
+
+- hosts: os_nodes
+  gather_facts: no
+  any_errors_fatal: false
+  become: yes
+  become_user: root
+
+  tasks:
+  
+    - name: Stop backgroud processes
+      ignore_errors: yes
+      shell: | 
+        pkill -9 -f capture_OS.sh
+      tags: 
+        - kill_exp
+
+- hosts: client_nodes:os_nodes:probe_nodes
+  gather_facts: no
+  any_errors_fatal: false
+  become: yes
+  become_user: root
+
+  tasks:
+
+    - name: Stop backgroud processes 1
+      ignore_errors: yes
+      shell: | 
+        pkill -9 -f tcpdump
+      tags: 
+        - kill_exp
+
+    - name: Stop backgroud processes 2
+      ignore_errors: yes
+      shell: | 
+        lsof -t -i:5005 | xargs -r kill -9
+      tags: 
+        - kill_exp
+
+    - name: Remove all docker containers
+      ignore_errors: yes
+      shell: | 
+        docker kill $(docker ps -q)
+        docker rm $(docker ps -a -q)
+      tags: 
+        - kill_exp
+        - kill_exp_screen
+
+    - name: Kill screens
+      ignore_errors: yes
+      shell: | 
+        killall screen
+      tags: 
+        - kill_exp_screen
+
+######################################################
+# RM_PCAPS
+######################################################
+- hosts: os_nodes:probe_nodes:client_nodes
+  gather_facts: no
+  ignore_errors: yes
+  become: yes
+  become_user: root
+
+  tasks:   
+
+    - name: Remove pcap folder at the end of an experiment
+      file:
+        state: absent
+        path: /home/afonso_carvalho/pcap-folder
+      tags: 
+        - rm_pcaps
+
+- hosts: probe_nodes:client_nodes
+  gather_facts: no
+  ignore_errors: yes
+  become: yes
+  become_user: root
+
+  tasks:   
+
+    - name: Remove logs at the end of an experiment
+      file:
+        state: absent
+        path: /home/afonso_carvalho/logs
+      tags: 
+        - rm_pcaps
+
+- hosts: os_nodes
+  gather_facts: no
+  ignore_errors: yes
+  become: yes
+  become_user: root
+
+  tasks:   
+
+    - name: Remove access log at the end of an experiment
+      file:
+        state: absent
+        path: /home/afonso_carvalho/hidden-service-docker-image/web/access.log
+      tags: 
+        - rm_pcaps
+    
+    - name: Remove error log at the end of an experiment
+      file:
+        state: absent
+        path: /home/afonso_carvalho/hidden-service-docker-image/web/error.log
+      tags: 
+        - rm_pcaps
+
+######################################################
+# FETCH_PCAPS
+######################################################
+
+- hosts: os_nodes
+  gather_facts: no
+  any_errors_fatal: true
+
+  tasks:    
+
+    - name: Create directory for onion pcaps
+      ignore_errors: yes
+      local_action:
+        module: file
+        path: /PATH/afonso/test_parsing/{{ experiment_folder }}/{{ node_name }}/captures/
+        state: directory
+      tags: 
+        - fetch_pcaps_onion
+        - fetch_pcaps
+        - create_dir
+    
+    - name: Create directory for onion logs
+      ignore_errors: yes
+      local_action:
+        module: file
+        path: /PATH/afonso/test_parsing/{{ experiment_folder }}/{{ node_name }}/logs/
+        state: directory
+      tags: 
+        - fetch_pcaps_onion
+        - fetch_pcaps
+        - create_dir
+
+    - name: Fetch onion pcaps
+      synchronize:  
+        src: /home/afonso_carvalho/pcap-folder/
+        dest: /PATH/afonso/test_parsing/{{ experiment_folder }}/{{ node_name }}/captures/ 
+        mode: pull
+      ignore_errors: yes 
+      tags:
+        - fetch_pcaps_onion
+        - fetch_pcaps
+      
+    - name: Fetch onion logs
+      synchronize:  
+        src: /home/afonso_carvalho/hidden-service-docker-image/web/*.log
+        dest: /PATH/afonso/test_parsing/{{ experiment_folder }}/{{ node_name }}/logs/ 
+        mode: pull
+      ignore_errors: yes 
+      tags:
+        - fetch_pcaps_onion
+        - fetch_pcaps
+
+- hosts: probe_nodes
+  gather_facts: no
+  any_errors_fatal: true
+
+  tasks:    
+
+    - name: Create directory for probe pcaps
+      ignore_errors: yes
+      local_action:
+        module: file
+        path: /PATH/afonso/test_parsing/{{ experiment_folder }}/{{ node_name }}/captures/
+        state: directory
+      tags: 
+        - fetch_pcaps_probes
+        - fetch_pcaps
+        - create_dir
+
+    - name: Fetch probe pcaps
+      synchronize:  
+        src: /home/afonso_carvalho/pcap-folder/
+        dest: /PATH/afonso/test_parsing/{{ experiment_folder }}/{{ node_name }}/captures/
+        mode: pull
+      ignore_errors: yes 
+      tags:
+        - fetch_pcaps_probes
+        - fetch_pcaps
+    
+    - name: Create directory for probe logs
+      ignore_errors: yes
+      local_action:
+        module: file
+        path: /PATH/afonso/test_parsing/{{ experiment_folder }}/{{ node_name }}/logs/
+        state: directory
+      tags: 
+        - fetch_pcaps_probes
+        - fetch_pcaps
+        - create_dir
+
+    - name: Fetch probe logs
+      synchronize:  
+        src: /home/afonso_carvalho/logs/experiment.log
+        dest: /PATH/afonso/test_parsing/{{ experiment_folder }}/{{ node_name }}/logs/
+        mode: pull
+      ignore_errors: yes 
+      tags:
+        - fetch_pcaps_probes
+        - fetch_pcaps
+
+- hosts: client_nodes
+  gather_facts: no
+  any_errors_fatal: true
+
+  tasks:    
+
+    - name: Create directory for client pcaps
+      ignore_errors: yes
+      local_action:
+        module: file
+        path: /PATH/afonso/test_parsing/{{ experiment_folder }}/{{ node_name }}/captures/
+        state: directory
+      tags: 
+        - fetch_pcaps_clients
+        - fetch_pcaps
+        - create_dir
+
+    - name: Fetch client pcaps
+      synchronize:  
+        src: /home/afonso_carvalho/pcap-folder/
+        dest: /PATH/afonso/test_parsing/{{ experiment_folder }}/{{ node_name }}/captures/ 
+        mode: pull
+      ignore_errors: yes 
+      tags:
+        - fetch_pcaps_client
+        - fetch_pcaps
+
+    - name: Create directory for client logs
+      ignore_errors: yes
+      local_action:
+        module: file
+        path: /PATH/afonso/test_parsing/{{ experiment_folder }}/{{ node_name }}/logs/
+        state: directory
+      tags: 
+        - fetch_pcaps_clients
+        - fetch_pcaps
+        - create_dir
+
+    - name: Fetch client logs
+      synchronize:  
+        src: /home/afonso_carvalho/logs/experiment.log
+        dest: /PATH/afonso/test_parsing/{{ experiment_folder }}/{{ node_name }}/logs/
+        mode: pull
+      ignore_errors: yes 
+      tags:
+        - fetch_pcaps_clients
+        - fetch_pcaps
+- hosts: coordinator
+  gather_facts: no
+  any_errors_fatal: true
+
+  tasks:    
+
+    - name: Fetch experiment times from the coordinator
+      synchronize:  
+        src: /home/afonso_carvalho/{{ experiment_file }}
+        dest: /PATH/afonso/test_parsing/{{ experiment_folder }}/ 
+        mode: pull
+      ignore_errors: yes 
+      tags:
+        - fetch_coord
+        - fetch_pcaps
